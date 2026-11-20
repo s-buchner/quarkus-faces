@@ -1,0 +1,22 @@
+FROM ://redhat.com
+
+# Install runtime dependencies (POI font support + tar/gzip for extracting the release)
+RUN microdnf update -y \
+  && microdnf install -y freetype fontconfig tar gzip \
+  && microdnf clean all
+
+WORKDIR /work/
+
+# Download and extract the pre-built native bundle from your public GitHub Release
+ADD https://github.com/s-buchner/quarkus-faces/releases/download/latest-binary/quarkus-native-bundle.tar.gz /tmp/bundle.tar.gz
+
+RUN tar -xzvf /tmp/bundle.tar.gz -C /work/ \
+  && rm -f /tmp/bundle.tar.gz \
+  && chmod 775 /work /work/application \
+  && chown -R 1001:root /work \
+  && chmod -R "g+rwX" /work
+
+EXPOSE 8000
+USER 1001
+
+CMD ["./application", "-Dquarkus.http.host=0.0.0.0"]
