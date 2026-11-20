@@ -1,0 +1,19 @@
+FROM ://redhat.com
+
+RUN microdnf update -y && microdnf install -y freetype fontconfig && microdnf clean all
+
+WORKDIR /work/
+
+# Copy pre-built native executable and shared libraries from target/
+COPY target/*.properties target/*.so /work/
+COPY target/*-runner /work/application
+
+RUN chmod 775 /work /work/application \
+  && chown -R 1001 /work \
+  && chmod -R "g+rwX" /work \
+  && chown -R 1001:root /work
+
+EXPOSE 8000
+USER 1001
+
+CMD ["./application", "-Dquarkus.http.host=0.0.0.0"]
