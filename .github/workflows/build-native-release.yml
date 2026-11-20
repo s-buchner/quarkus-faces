@@ -1,20 +1,16 @@
-name: Build Native Image and Push to GHCR
+name: Build Native Binary for Koyeb
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+permissions:
+  contents: write # Required to create/update GitHub Releases
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest # 4 vCPUs, 16 GB RAM
-    permissions:
-      contents: read
-      packages: write
-
+  build-native:
+    runs-on: ubuntu-latest # 16 GB RAM
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,17 +29,19 @@ jobs:
             -Dquarkus.native.builder-image=quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-25 \
             -Dquarkus.native.native-image-xmx=10g
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Package native runner and libraries
+        run: |
+          mkdir -p dist
+          cp target/*-runner dist/application
+          cp target/*.so dist/ 2>/dev/null || true
+          cp target/*.properties dist/ 2>/dev/null || true
+          tar -czvf quarkus-native-bundle.tar.gz -C dist .
 
-      - name: Build and push runtime Docker image
-        uses: docker/build-push-action@v6
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          context: .
-          file: ./Dockerfile.runtime
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          tag_name: latest-binary
+          name: Latest Native Binary
+          prerelease: true
+          make_latest: false
+          files: quarkus-native-bundle.tar.gz
